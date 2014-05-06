@@ -547,7 +547,7 @@ static inline int mpeg4_decode_dc(MpegEncContext *s, int n, int *dir_ptr)
         code = get_vlc2(&s->gb, dc_chrom.table, DC_VLC_BITS, 1);
 
     if (code < 0 || code > 9 /* && s->nbit < 9 */) {
-        av_log(s->avctx, AV_LOG_ERROR, "illegal dc vlc\n");
+        av_log(s->avctx, AV_LOG_ERROR, "illegal dc vlc at %d\n", get_bits_count(&s->gb));
         return -1;
     }
 
@@ -1083,7 +1083,7 @@ static inline int mpeg4_decode_block(Mpeg4DecContext *ctx, int16_t *block,
                             } else {
                                 if (SHOW_UBITS(re, &s->gb, 1) == 0) {
                                     av_log(s->avctx, AV_LOG_ERROR,
-                                           "1. marker bit missing in 3. esc\n");
+                                           "1. marker bit missing in 3. esc at %d\n", get_bits_count(&s->gb));
                                     if (!(s->err_recognition & AV_EF_IGNORE_ERR))
                                         return -1;
                                 }
@@ -1094,7 +1094,7 @@ static inline int mpeg4_decode_block(Mpeg4DecContext *ctx, int16_t *block,
 
                                 if (SHOW_UBITS(re, &s->gb, 1) == 0) {
                                     av_log(s->avctx, AV_LOG_ERROR,
-                                           "2. marker bit missing in 3. esc\n");
+                                           "2. marker bit missing in 3. esc at %d\n", get_bits_count(&s->gb));
                                     if (!(s->err_recognition & AV_EF_IGNORE_ERR))
                                         return -1;
                                 }
@@ -1171,7 +1171,7 @@ static inline int mpeg4_decode_block(Mpeg4DecContext *ctx, int16_t *block,
                 i -= 192;
                 if (i & (~63)) {
                     av_log(s->avctx, AV_LOG_ERROR,
-                           "ac-tex damaged at %d %d\n", s->mb_x, s->mb_y);
+                           "ac-tex damaged at %d %d %d\n", s->mb_x, s->mb_y, get_bits_count(&s->gb));
                     return -1;
                 }
 
@@ -1333,7 +1333,7 @@ static int mpeg4_decode_mb(MpegEncContext *s, int16_t block[6][64])
             cbpc = get_vlc2(&s->gb, ff_h263_inter_MCBPC_vlc.table, INTER_MCBPC_VLC_BITS, 2);
             if (cbpc < 0) {
                 av_log(s->avctx, AV_LOG_ERROR,
-                       "cbpc damaged at %d %d\n", s->mb_x, s->mb_y);
+                       "cbpc damaged at %d %d %d\n", s->mb_x, s->mb_y, get_bits_count(&s->gb));
                 return -1;
             }
         } while (cbpc == 20);
@@ -1477,7 +1477,7 @@ static int mpeg4_decode_mb(MpegEncContext *s, int16_t block[6][64])
             modb2   = get_bits1(&s->gb);
             mb_type = get_vlc2(&s->gb, mb_type_b_vlc.table, MB_TYPE_B_VLC_BITS, 1);
             if (mb_type < 0) {
-                av_log(s->avctx, AV_LOG_ERROR, "illegal MB_type\n");
+                av_log(s->avctx, AV_LOG_ERROR, "illegal MB_type at %d\n", get_bits_count(&s->gb));
                 return -1;
             }
             mb_type = mb_type_b_map[mb_type];
@@ -1588,7 +1588,7 @@ static int mpeg4_decode_mb(MpegEncContext *s, int16_t block[6][64])
             cbpc = get_vlc2(&s->gb, ff_h263_intra_MCBPC_vlc.table, INTRA_MCBPC_VLC_BITS, 2);
             if (cbpc < 0) {
                 av_log(s->avctx, AV_LOG_ERROR,
-                       "I cbpc damaged at %d %d\n", s->mb_x, s->mb_y);
+                       "I cbpc damaged at %d %d %d\n", s->mb_x, s->mb_y, get_bits_count(&s->gb));
                 return -1;
             }
         } while (cbpc == 8);
@@ -1606,7 +1606,7 @@ intra:
         cbpy = get_vlc2(&s->gb, ff_h263_cbpy_vlc.table, CBPY_VLC_BITS, 1);
         if (cbpy < 0) {
             av_log(s->avctx, AV_LOG_ERROR,
-                   "I cbpy damaged at %d %d\n", s->mb_x, s->mb_y);
+                   "I cbpy damaged at %d %d %d\n", s->mb_x, s->mb_y, get_bits_count(&s->gb));
             return -1;
         }
         cbp = (cbpc & 3) | (cbpy << 2);
