@@ -209,7 +209,8 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
                &dc[0], &dc[1], &dc[2], &dc[3], &dc[4], &dc[5], &forced_dirs) == 3+6+1 ||
         sscanf(mmb_part, "%d:%d:%d:%d:%d:%d:%d:%d:%d", &mmb_x, &mmb_y, &mmb_pos,
                &dc[0], &dc[1], &dc[2], &dc[3], &dc[4], &dc[5]) == 3+6 ||
-        sscanf(mmb_part, "%d:%d:%d", &mmb_x, &mmb_y, &mmb_pos) == 3
+        sscanf(mmb_part, "%d:%d:%d", &mmb_x, &mmb_y, &mmb_pos) == 3 ||
+        sscanf(mmb_part, "%d:%d:%d::%d", &mmb_x, &mmb_y, &mmb_pos, &forced_dirs) == 4
     ) {
         if (mb_x == mmb_x && mb_y == mmb_y && mb_y >= 0 && mb_x >= 0) {
             int i;
