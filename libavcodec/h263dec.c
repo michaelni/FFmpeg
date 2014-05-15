@@ -197,6 +197,7 @@ static void mpeg4_encode_dc(PutBitContext *pb, int level, int n)
     }
 }
 
+
 static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBitContext *gb_blank, int mb_x, int mb_y, const char *mmb_part) {
     int bitpos = INT_MIN;
     int mmb_x, mmb_y, mmb_pos, xor;
