@@ -423,6 +423,18 @@ static int decode_slice(MpegEncContext *s)
             if (s->pict_type != AV_PICTURE_TYPE_B)
                 ff_h263_update_motion_val(s);
 
+            if (s->avctx->debug & FF_DEBUG_MB_POS_SIZE) {
+                if (s->pict_type == AV_PICTURE_TYPE_P) {
+                    const int mb_xy = s->mb_y * s->mb_stride + s->mb_x;
+                    //FIXME a lot of that is only needed for !low_delay
+                    const int xy = s->block_index[0];
+
+                    av_log(s->avctx, AV_LOG_DEBUG, ", MB_type: %d, MV: %d %d\n", s->current_picture.mb_type[mb_xy], s->current_picture.motion_val[0][xy][0], s->current_picture.motion_val[0][xy][1]);
+                }
+                else
+                    av_log(s->avctx, AV_LOG_DEBUG, "\n");
+            }
+
             if (ret < 0) {
                 const int xy = s->mb_x + s->mb_y * s->mb_stride;
                 if (ret == SLICE_END) {
