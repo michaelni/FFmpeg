@@ -236,6 +236,10 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
             if (forced_dirs >= 0) {
                 s->is_forced_dc_dir = 1;
             }
+            else {
+                s->is_forced_dc_dir = 0;
+            }
+
             if (s->is_forced_dc == 1) {
                 // absolute forcing
                 for (i = 0; i<6; i++)
