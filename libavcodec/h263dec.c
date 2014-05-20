@@ -302,11 +302,33 @@ static int get_bitpos_from_mmb (MpegEncContext *s, GetBitContext *gb, GetBitCont
     int bitpos = INT_MIN;
 
     while (bitpos == INT_MIN && mmb && *mmb) {
-        char *token = av_get_token(&mmb, ",");
+        char *token_frame = av_get_token(&mmb, "=");
+        char *token_frame_orig;
+        token_frame_orig = token_frame;
         if (*mmb)
             mmb++;
-        bitpos = get_bitpos_from_mmb_part(s, gb, gb_blank, mb_x, mb_y, token);
-        av_free(token);
+
+        int frame_number_mmb = -1;
+        if (sscanf(token_frame, "FRAME%d:", &frame_number_mmb) == 1) {
+            char frame_number_str[5];
+            if (frame_number_mmb < 1000) {
+                snprintf(frame_number_str, sizeof(frame_number_str), "%d", frame_number_mmb);
+            }
+            token_frame += 5 + strlen(frame_number_str) + 1;
+        }
+        // if framenumber is in the mmb, check if it is the current one
+        if ((frame_number_mmb < 0) || (frame_number_mmb == s->avctx->frame_number)) {
+            while (bitpos == INT_MIN && token_frame && *token_frame) {
+                char *token = av_get_token(&token_frame, ",");
+                char *token_orig;
+                token_orig = token;
+                if (*token_frame)
+                    token_frame++;
+                bitpos = get_bitpos_from_mmb_part(s, gb, gb_blank, mb_x, mb_y, token);
+                av_free(token_orig);
+            }
+        }
+        av_free(token_frame_orig);
     }
 
     return bitpos;
