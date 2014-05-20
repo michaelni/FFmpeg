@@ -218,7 +218,9 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
                 av_log(NULL, AV_LOG_ERROR, "mmb bit pos invalid\n");
                 return INT_MIN;
             }
+
             bitpos = mmb_pos;
+
             if (mmb_pos == -2) {
                 // absolute forcing
                 s->is_forced_dc = 1;
@@ -230,6 +232,7 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
             else {
                 s->is_forced_dc = 0;
             }
+
             if (forced_dirs >= 0) {
                 s->is_forced_dc_dir = 1;
             }
@@ -245,6 +248,7 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
                     s->forced_dc[i] = dc[i];
                 memset(dc, 0, sizeof(dc));
             }
+
             if (s->is_forced_dc_dir == 1) {
                 int check_forced = 1;
                 for(i=0; i<6; i++) {
@@ -257,6 +261,7 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
                     check_forced *= 2;
                 }
             }
+
             if (mmb_pos == -1 || mmb_pos == -2) {
                 PutBitContext pb;
                 init_put_bits(&pb, gb_blank->buffer, 64);
@@ -399,6 +404,7 @@ static int decode_slice(MpegEncContext *s)
             bit_count_before_decode = get_bits_count(&s->gb);;
 
             ret = s->decode_mb(s, s->block);
+
             if (s->avctx->debug & FF_DEBUG_MB_POS_SIZE) {
                 av_log(s->avctx, AV_LOG_DEBUG, "MB pos/size: %d %02d:%02d:%d %d dc: %d %d %d %d - %d %d\n", ret, s->mb_x, s->mb_y, bit_count_before_decode, get_bits_count(&s->gb) - bit_count_before_decode,
                        s->block[0][0],
