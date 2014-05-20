@@ -410,7 +410,7 @@ static int decode_slice(MpegEncContext *s)
             ret = s->decode_mb(s, s->block);
 
             if (s->avctx->debug & FF_DEBUG_MB_POS_SIZE) {
-                av_log(s->avctx, AV_LOG_DEBUG, "MB pos/size: %d %02d:%02d:%d %d dc: %d %d %d %d - %d %d\n", ret, s->mb_x, s->mb_y, bit_count_before_decode, get_bits_count(&s->gb) - bit_count_before_decode,
+                av_log(s->avctx, AV_LOG_DEBUG, "MB pos/size: %d %03d:%02d:%02d:%d %d dc: %d %d %d %d - %d %d", ret, s->avctx->frame_number, s->mb_x, s->mb_y, bit_count_before_decode, get_bits_count(&s->gb) - bit_count_before_decode,
                        s->block[0][0],
                        s->block[1][0],
                        s->block[2][0],
