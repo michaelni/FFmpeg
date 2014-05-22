@@ -270,7 +270,11 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
                 PutBitContext pb;
                 init_put_bits(&pb, gb_blank->buffer, 64);
 
-                put_bits(&pb, 6, 0x23); //100011
+                if (s->pict_type == AV_PICTURE_TYPE_I) {
+                    put_bits(&pb, 6, 0x23); //100011
+                } else {
+                    put_bits(&pb, 11, 0x63); //0 00011 0 0011
+                }
                 for(i=0; i<6; i++) {
                     if (dc[i] < -255 || dc[i] > 255) {
                         av_log(NULL, AV_LOG_ERROR, "mmb dc invalid\n");
