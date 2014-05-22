@@ -214,7 +214,7 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
     ) {
         if (mb_x == mmb_x && mb_y == mmb_y && mb_y >= 0 && mb_x >= 0) {
             int i;
-            if (mmb_pos < -2 || mmb_pos > gb->size_in_bits - 1) {
+            if (mmb_pos < -4 || mmb_pos > gb->size_in_bits - 1) {
                 av_log(NULL, AV_LOG_ERROR, "mmb bit pos invalid\n");
                 return INT_MIN;
             }
@@ -266,21 +266,34 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
                 }
             }
 
-            if (mmb_pos == -1 || mmb_pos == -2) {
+            if (mmb_pos == -1 || mmb_pos == -2 || mmb_pos == -3) {
                 PutBitContext pb;
                 init_put_bits(&pb, gb_blank->buffer, 64);
 
-                if (s->pict_type == AV_PICTURE_TYPE_I) {
-                    put_bits(&pb, 6, 0x23); //100011
+                if (mmb_pos == -1 || mmb_pos == -2) {
+                    if (s->pict_type == AV_PICTURE_TYPE_I) {
+                        put_bits(&pb, 6, 0x23); //100011
+                    } else {
+                        put_bits(&pb, 11, 0x63); //0 00011 0 0011
+                    }
+                    for(i=0; i<6; i++) {
+                        if (dc[i] < -255 || dc[i] > 255) {
+                            av_log(NULL, AV_LOG_ERROR, "mmb dc invalid\n");
+                            return INT_MIN;
+                        }
+                        mpeg4_encode_dc(&pb, dc[i], i);
+                    }
                 } else {
-                    put_bits(&pb, 11, 0x63); //0 00011 0 0011
-                }
-                for(i=0; i<6; i++) {
-                    if (dc[i] < -255 || dc[i] > 255) {
-                        av_log(NULL, AV_LOG_ERROR, "mmb dc invalid\n");
+                    if (s->pict_type != AV_PICTURE_TYPE_P) {
+                        av_log(NULL, AV_LOG_ERROR, "MV mmb only possible in P frames\n");
                         return INT_MIN;
                     }
-                    mpeg4_encode_dc(&pb, dc[i], i);
+                    put_bits(&pb, 4, 0x7); //0 1 11
+                    FFSWAP(PutBitContext, s->pb, pb);
+                    for(i=0; i<2; i++) {
+                        ff_h263_encode_motion(s, dc[i], s->f_code);
+                    }
+                    FFSWAP(PutBitContext, s->pb, pb);
                 }
                 put_bits(&pb, 1, 1);
                 flush_put_bits(&pb);
@@ -411,7 +424,7 @@ static int decode_slice(MpegEncContext *s)
                         s->gb = gb_bak;
                     bit_count_now = get_bits_count(&s->gb);
                     skip_bits(&s->gb, new_bitpos - bit_count_now);
-                } else if (new_bitpos == -1 || new_bitpos == -2 || s->gb.buffer == gb_blank.buffer) {
+                } else if ((new_bitpos < 0 && new_bitpos > -5) || s->gb.buffer == gb_blank.buffer) {
                     s->gb = gb_blank;
                 }
             }
