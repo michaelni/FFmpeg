@@ -2590,6 +2590,7 @@ typedef struct AVCodecContext {
 #define FF_DEBUG_THREADS     0x00010000
 #define FF_DEBUG_NOMC        0x01000000
 #define FF_DEBUG_MB_POS_SIZE 0x02000000
+#define FF_DEBUG_MB_POS_BRUTE 0x04000000
 
 #if FF_API_DEBUG_MV
     /**

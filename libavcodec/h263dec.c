@@ -450,6 +450,26 @@ static int decode_slice(MpegEncContext *s)
 
             bit_count_before_decode = get_bits_count(&s->gb);;
 
+            if ((s->avctx->debug & FF_DEBUG_MB_POS_BRUTE) && s->mb_x == 0 && s->mb_y == 0) {
+                int index;
+                for (index = 0; index < s->gb.size_in_bits; index++) {
+                    MpegEncContext mbak = *s;
+                    int start, end;
+                    int qp = s->qscale;
+
+                    skip_bits(&s->gb, index);
+                    start = get_bits_count(&s->gb);
+
+                    ret = s->decode_mb(s, s->block);
+                    end = get_bits_count(&s->gb);
+                    if (ret >= 0) {
+                        av_log(s->avctx, AV_LOG_DEBUG, "MB pos brute: F#:%d, PTS:%d, Start:%d, End:%d, Size:%d, dQP:%d\n", s->avctx->frame_number, s->time, start, end, end - start, s->qscale - qp);
+                    }
+
+                    *s = mbak;
+                }
+            }
+
             ret = s->decode_mb(s, s->block);
 
             if (s->avctx->debug & FF_DEBUG_MB_POS_SIZE) {
