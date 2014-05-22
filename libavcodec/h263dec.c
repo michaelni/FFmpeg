@@ -266,7 +266,7 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
                 }
             }
 
-            if (mmb_pos == -1 || mmb_pos == -2 || mmb_pos == -3) {
+            if (mmb_pos == -1 || mmb_pos == -2 || mmb_pos == -3 || mmb_pos == -4) {
                 PutBitContext pb;
                 init_put_bits(&pb, gb_blank->buffer, 64);
 
@@ -288,12 +288,16 @@ static int get_bitpos_from_mmb_part (MpegEncContext *s, GetBitContext *gb, GetBi
                         av_log(NULL, AV_LOG_ERROR, "MV mmb only possible in P frames\n");
                         return INT_MIN;
                     }
-                    put_bits(&pb, 4, 0x7); //0 1 11
-                    FFSWAP(PutBitContext, s->pb, pb);
-                    for(i=0; i<2; i++) {
-                        ff_h263_encode_motion(s, dc[i], s->f_code);
+                    if (mmb_pos == -3) {
+                        put_bits(&pb, 1, 1); //1
+                    } else {
+                        put_bits(&pb, 4, 0x7); //0 1 11
+                        FFSWAP(PutBitContext, s->pb, pb);
+                        for(i=0; i<2; i++) {
+                            ff_h263_encode_motion(s, dc[i], s->f_code);
+                        }
+                        FFSWAP(PutBitContext, s->pb, pb);
                     }
-                    FFSWAP(PutBitContext, s->pb, pb);
                 }
                 put_bits(&pb, 1, 1);
                 flush_put_bits(&pb);
