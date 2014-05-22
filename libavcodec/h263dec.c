@@ -675,6 +675,8 @@ retry:
 
     if (s->avctx->mmb) {
         get_bitpos_from_mmb(s, &s->gb, NULL, -1, -1, s->avctx->mmb);
+        s->is_forced_dc = 0;
+        s->is_forced_dc_dir = 0;
     }
 
     if (!s->context_initialized)
