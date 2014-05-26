@@ -3076,6 +3076,12 @@ typedef struct AVCodecContext {
      */
     char *mmb;
 
+    /**
+     * Instructions to bruteforce bitflips
+     * - decoding: set by user
+     * - encoding: unused
+     */
+    char *bitflip_brute;
 } AVCodecContext;
 
 AVRational av_codec_get_pkt_timebase         (const AVCodecContext *avctx);

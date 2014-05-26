@@ -355,6 +355,18 @@ static int get_bitpos_from_mmb (MpegEncContext *s, GetBitContext *gb, GetBitCont
     return bitpos;
 }
 
+static void flip_bits(GetBitContext *gb, int bitpos[], int bitcount, int basepos)
+{
+    int i;
+    uint8_t *buf = gb->buffer;
+
+    for(i = 0; i < bitcount; i++) {
+        int pos = bitpos[i] + basepos;
+        buf[ pos >> 3 ] ^= 0x80 >> (pos & 7);
+    }
+}
+
+
 static int decode_slice(MpegEncContext *s)
 {
     const int part_mask = s->partitioned_frame
@@ -467,6 +479,72 @@ static int decode_slice(MpegEncContext *s)
                     }
 
                     *s = mbak;
+                }
+            }
+
+            if (s->avctx->bitflip_brute) {
+                int framenum, mbx, mby, mbcount, bitstart, bitend, bitcount;
+
+                if (sscanf(s->avctx->bitflip_brute, "%d:%d:%d:%d:%d:%d:%d",
+                    &framenum, &mbx, &mby, &mbcount, &bitstart, &bitend, &bitcount
+                   ) == 7 && s->mb_x == mbx && s->mb_y == mby && s->avctx->frame_number == framenum
+                    && bitcount>0 && bitcount < 16
+                ) {
+                    MpegEncContext mbak = *s;
+                    int qp = s->qscale;
+                    int bitpos[17] = {0};
+                    for (;;) {
+                        int i, mbi;
+                        bitpos[0] ++;
+                        for(i = 0; i < bitcount && bitpos[i] == bitend - bitstart; i++) {
+                            bitpos[i] = 0;
+                            bitpos[i+1] ++;
+                        }
+                        if (i == bitcount)
+                            break;
+                        for(i = 1; i < bitcount; i++)
+                            if (bitpos[i-1] <= bitpos[i])
+                                break;
+                        if (i != bitcount)
+                            continue;
+
+                        flip_bits(&s->gb, bitpos, bitcount, bitstart);
+
+                        skip_bits(&s->gb, bitstart - get_bits_count(&s->gb));
+
+                        for (mbi = 0; mbi < mbcount ; mbi++) {
+                            ret = s->decode_mb(s, s->block);
+                            if (ret < 0)
+                                break;
+
+                            s->mb_x ++;
+                            if (s->mb_x == s->mb_width) {
+                                s->mb_x = 0;
+                                s->mb_y ++;
+                                ff_init_block_index(s);
+                            }
+                            ff_update_block_index(s);
+
+                            if (s->resync_mb_x == s->mb_x && s->resync_mb_y + 1 == s->mb_y)
+                                s->first_slice_line = 0;
+
+                            /* DCT & quantize */
+
+                            s->mv_dir  = MV_DIR_FORWARD;
+                            s->mv_type = MV_TYPE_16X16;
+                        }
+                        flip_bits(&s->gb, bitpos, bitcount, bitstart);
+
+                        if (mbi == mbcount &&
+                            get_bits_count(&s->gb) == bitend) {
+                            av_log(s->avctx, AV_LOG_DEBUG, "bitflip brute: F#:%d, PTS:%"PRId64", dQP:%d", s->avctx->frame_number, s->time, s->qscale - qp);
+                            for (i=0; i<bitcount; i++)
+                                av_log(s->avctx, AV_LOG_DEBUG, ", %5d", bitpos[i] + bitstart);
+                            av_log(s->avctx, AV_LOG_DEBUG, "\n");
+                        }
+
+                        *s = mbak;
+                    }
                 }
             }
 
