@@ -1353,6 +1353,8 @@ static int mpeg4_decode_mb(MpegEncContext *s, int16_t block[6][64])
                 av_log(s->avctx, AV_LOG_WARNING, "dquant at %d %d (qp=%d)\n", s->mb_x, s->mb_y, s->qscale);
             if (cbpc == 20)
                 av_log(s->avctx, AV_LOG_WARNING, "stuffing at %d %d\n", s->mb_x, s->mb_y);
+            else if (cbpc & 16)
+                av_log(s->avctx, AV_LOG_WARNING, "4MV at %d %d\n", s->mb_x, s->mb_y);
         } while (cbpc == 20);
 
         s->dsp.clear_blocks(s->block[0]);
