@@ -463,7 +463,7 @@ static int decode_slice(MpegEncContext *s)
                     ret = s->decode_mb(s, s->block);
                     end = get_bits_count(&s->gb);
                     if (ret >= 0) {
-                        av_log(s->avctx, AV_LOG_DEBUG, "MB pos brute: F#:%d, PTS:%d, Start:%d, End:%d, Size:%d, dQP:%d\n", s->avctx->frame_number, s->time, start, end, end - start, s->qscale - qp);
+                        av_log(s->avctx, AV_LOG_DEBUG, "MB pos brute: F#:%d, PTS:%"PRId64", Start:%d, End:%d, Size:%d, dQP:%d\n", s->avctx->frame_number, s->time, start, end, end - start, s->qscale - qp);
                     }
 
                     *s = mbak;
