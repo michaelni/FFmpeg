@@ -74,8 +74,8 @@ try to unroll inner for(x=0 ... loop to avoid these damn if(x ... checks
 //Changelog: use git log
 
 #include "config.h"
-#include "libavutil/avutil.h"
-#include "libavutil/avassert.h"
+#include <libavutil/avutil.h>
+#include <libavutil/avassert.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,7 +87,7 @@ try to unroll inner for(x=0 ... loop to avoid these damn if(x ... checks
 //#define DEBUG_BRIGHTNESS
 #include "postprocess.h"
 #include "postprocess_internal.h"
-#include "libavutil/avstring.h"
+#include <libavutil/avstring.h>
 
 unsigned postproc_version(void)
 {

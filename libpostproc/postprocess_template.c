@@ -23,7 +23,7 @@
  * mmx/mmx2/3dnow postprocess code.
  */
 
-#include "libavutil/x86/asm.h"
+#include "x86/asm.h"
 
 /* A single TEMPLATE_PP_* should be defined (to 1) when this template is
  * included. The following macros will define its dependencies to 1 as well
