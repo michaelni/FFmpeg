@@ -32,6 +32,14 @@
 #include <libavutil/log.h>
 #include "postprocess.h"
 
+//FIXME remove below once configure has been updated
+#ifndef HAVE_MMX_INLINE
+#define HAVE_MMX_INLINE         HAVE_MMX
+#define HAVE_MMXEXT_INLINE      HAVE_MMXEXT
+#define HAVE_AMD3DNOW_INLINE    HAVE_AMD3DNOW
+#define HAVE_SSE2_INLINE        HAVE_SSE
+#endif
+
 #define V_DEBLOCK       0x01
 #define H_DEBLOCK       0x02
 #define DERING          0x04
