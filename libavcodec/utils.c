@@ -3869,6 +3869,17 @@ int avcodec_parameters_to_context(AVCodecContext *codec,
     return 0;
 }
 
+
+int avpriv_get_mvs(AVCodecContext *avctx, int16_t (*mvs)[2], int8_t *refs, int width, int height)
+{
+    switch (avctx->codec_id) {
+    case AV_CODEC_ID_SNOW:
+        return ff_get_mvs_snow(avctx, mvs, refs, width, height);
+    default:
+        return AVERROR(EINVAL);
+    }
+}
+
 #ifdef TEST
 int main(void){
     AVCodec *codec = NULL;
