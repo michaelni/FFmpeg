@@ -107,6 +107,7 @@ typedef struct HTTPContext {
     int reconnect;
     int reconnect_at_eof;
     int reconnect_streamed;
+    int reconnect_delay;
     int listen;
     char *resource;
     int reply_code;
@@ -1249,6 +1250,8 @@ static int http_read_stream(URLContext *h, uint8_t *buf, int size)
         || (read_ret == 0 && s->reconnect_at_eof && (!h->is_streamed || s->reconnect_streamed))) {
         int64_t target = h->is_streamed ? 0 : s->off;
         av_log(h, AV_LOG_INFO, "Will reconnect at %"PRId64" error=%s.\n", s->off, av_err2str(read_ret));
+        sleep(s->reconnect_delay);
+        s->reconnect_delay = 1 + 2*s->reconnect_delay;
         seek_ret = http_seek_internal(h, target, SEEK_SET, 1);
         if (seek_ret != target) {
             av_log(h, AV_LOG_ERROR, "Failed to reconnect at %"PRId64".\n", target);
@@ -1256,7 +1259,8 @@ static int http_read_stream(URLContext *h, uint8_t *buf, int size)
         }
 
         read_ret = http_buf_read(h, buf, size);
-    }
+    } else
+        s->reconnect_delay = 0;
 
     return read_ret;
 }
