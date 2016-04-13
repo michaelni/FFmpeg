@@ -168,7 +168,7 @@ static const uint8_t * const obmc_tab[4]= {
 
 static int query_formats(AVFilterContext *ctx)
 {
-    static const enum PixelFormat pix_fmts[] = {
+    static const enum AVPixelFormat pix_fmts[] = {
         AV_PIX_FMT_YUV444P,  AV_PIX_FMT_YUV422P,
         AV_PIX_FMT_YUV420P,  AV_PIX_FMT_YUV411P,
         AV_PIX_FMT_YUV410P,  AV_PIX_FMT_YUV440P,
@@ -222,7 +222,6 @@ av_cold static int config_output(AVFilterLink *outlink)
 
     mcfps->log2_mv_precission = 2;
 
-    outlink->flags |= FF_LINK_FLAG_REQUEST_LOOP;
     outlink->frame_rate = mcfps->frame_rate;
     outlink->time_base  = av_inv_q(mcfps->frame_rate);
 av_log(0,0, "FPS %d/%d\n", mcfps->frame_rate.num, mcfps->frame_rate.den);
