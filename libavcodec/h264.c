@@ -1392,6 +1392,10 @@ again:
                 break;
             av_log(h->avctx, AV_LOG_DEBUG,
                    "SPS decoding failure, trying again with the complete NAL\n");
+            if (nal->raw_size <= 0) {
+                av_log(h->avctx, AV_LOG_ERROR, "raw nal too small\n");
+                break;
+            }
             init_get_bits8(&h->gb, nal->raw_data + 1, nal->raw_size - 1);
             if (ff_h264_decode_seq_parameter_set(h, 0) >= 0)
                 break;
