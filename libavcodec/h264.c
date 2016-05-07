@@ -1175,6 +1175,9 @@ static int get_last_needed_nal(H264Context *h)
         H2645NAL *nal = &h->pkt.nals[i];
         GetBitContext gb;
 
+        if (nal->size <= 0)
+            continue;
+
         /* packets can sometimes contain multiple PPS/SPS,
          * e.g. two PAFF field pictures in one packet, or a demuxer
          * which splits NALs strangely if so, when frame threading we
