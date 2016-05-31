@@ -49,6 +49,19 @@
 #include "libpostproc/postprocess.h"
 #include "cmdutils.h"
 
+#if HAVE_PTHREADS
+#  include <pthread.h>
+#else
+#  ifdef pthread_mutex_lock
+#    undef pthread_mutex_lock
+#  endif
+#  define pthread_mutex_lock(a)
+#  ifdef pthread_mutex_unlock
+#    undef pthread_mutex_unlock
+#  endif
+#  define pthread_mutex_unlock(a)
+#endif
+
 typedef struct InputStream {
     AVStream *st;
 
@@ -84,6 +97,7 @@ static int do_show_library_versions = 0;
 static int do_show_pixel_formats = 0;
 static int do_show_pixel_format_flags = 0;
 static int do_show_pixel_format_components = 0;
+static int do_show_log = 0;
 
 static int do_show_chapter_tags = 0;
 static int do_show_format_tags = 0;
@@ -91,6 +105,7 @@ static int do_show_frame_tags = 0;
 static int do_show_program_tags = 0;
 static int do_show_stream_tags = 0;
 static int do_show_packet_tags = 0;
+
 
 static int show_value_unit              = 0;
 static int use_value_prefix             = 0;
@@ -146,6 +161,8 @@ typedef enum {
     SECTION_ID_FRAME_TAGS,
     SECTION_ID_FRAME_SIDE_DATA_LIST,
     SECTION_ID_FRAME_SIDE_DATA,
+    SECTION_ID_FRAME_LOG,
+    SECTION_ID_FRAME_LOGS,
     SECTION_ID_LIBRARY_VERSION,
     SECTION_ID_LIBRARY_VERSIONS,
     SECTION_ID_PACKET,
@@ -185,10 +202,12 @@ static struct section sections[] = {
     [SECTION_ID_FORMAT] =             { SECTION_ID_FORMAT, "format", 0, { SECTION_ID_FORMAT_TAGS, -1 } },
     [SECTION_ID_FORMAT_TAGS] =        { SECTION_ID_FORMAT_TAGS, "tags", SECTION_FLAG_HAS_VARIABLE_FIELDS, { -1 }, .element_name = "tag", .unique_name = "format_tags" },
     [SECTION_ID_FRAMES] =             { SECTION_ID_FRAMES, "frames", SECTION_FLAG_IS_ARRAY, { SECTION_ID_FRAME, SECTION_ID_SUBTITLE, -1 } },
-    [SECTION_ID_FRAME] =              { SECTION_ID_FRAME, "frame", 0, { SECTION_ID_FRAME_TAGS, SECTION_ID_FRAME_SIDE_DATA_LIST, -1 } },
+    [SECTION_ID_FRAME] =              { SECTION_ID_FRAME, "frame", 0, { SECTION_ID_FRAME_TAGS, SECTION_ID_FRAME_SIDE_DATA_LIST, SECTION_ID_FRAME_LOGS, -1 } },
     [SECTION_ID_FRAME_TAGS] =         { SECTION_ID_FRAME_TAGS, "tags", SECTION_FLAG_HAS_VARIABLE_FIELDS, { -1 }, .element_name = "tag", .unique_name = "frame_tags" },
     [SECTION_ID_FRAME_SIDE_DATA_LIST] ={ SECTION_ID_FRAME_SIDE_DATA_LIST, "side_data_list", SECTION_FLAG_IS_ARRAY, { SECTION_ID_FRAME_SIDE_DATA, -1 } },
     [SECTION_ID_FRAME_SIDE_DATA] =     { SECTION_ID_FRAME_SIDE_DATA, "side_data", 0, { -1 } },
+    [SECTION_ID_FRAME_LOGS] =         { SECTION_ID_FRAME_LOGS, "logs", SECTION_FLAG_IS_ARRAY, { SECTION_ID_FRAME_LOG, -1 } },
+    [SECTION_ID_FRAME_LOG] =          { SECTION_ID_FRAME_LOG, "log", SECTION_FLAG_HAS_VARIABLE_FIELDS, { -1 } },
     [SECTION_ID_LIBRARY_VERSIONS] =   { SECTION_ID_LIBRARY_VERSIONS, "library_versions", SECTION_FLAG_IS_ARRAY, { SECTION_ID_LIBRARY_VERSION, -1 } },
     [SECTION_ID_LIBRARY_VERSION] =    { SECTION_ID_LIBRARY_VERSION, "library_version", 0, { -1 } },
     [SECTION_ID_PACKETS] =            { SECTION_ID_PACKETS, "packets", SECTION_FLAG_IS_ARRAY, { SECTION_ID_PACKET, -1} },
@@ -255,11 +274,73 @@ static uint64_t *nb_streams_packets;
 static uint64_t *nb_streams_frames;
 static int *selected_streams;
 
+#if HAVE_PTHREADS
+pthread_mutex_t log_mutex;
+#endif
+typedef struct LogBuffer {
+    char *context_name;
+    int log_level;
+    char *log_message;
+    AVClassCategory category;
+    char *parent_name;
+    AVClassCategory parent_category;
+}LogBuffer;
+
+static LogBuffer *log_buffer;
+static int log_buffer_size;
+
+static void log_callback(void *ptr, int level, const char *fmt, va_list vl)
+{
+    AVClass* avc = ptr ? *(AVClass **) ptr : NULL;
+    va_list vl2;
+    char line[1024];
+    static int print_prefix = 1;
+    void *new_log_buffer;
+
+    va_copy(vl2, vl);
+    av_log_default_callback(ptr, level, fmt, vl);
+    av_log_format_line(ptr, level, fmt, vl2, line, sizeof(line), &print_prefix);
+    va_end(vl2);
+
+#if HAVE_PTHREADS
+    pthread_mutex_lock(&log_mutex);
+
+    new_log_buffer = av_realloc_array(log_buffer, log_buffer_size + 1, sizeof(*log_buffer));
+    if (new_log_buffer) {
+        log_buffer = new_log_buffer;
+        memset(&log_buffer[log_buffer_size], 0, sizeof(log_buffer[log_buffer_size]));
+        log_buffer[log_buffer_size].context_name= avc ? av_strdup(avc->item_name(ptr)) : NULL;
+        if (avc) {
+            if (avc->get_category) log_buffer[log_buffer_size].category = avc->get_category(ptr);
+            else                   log_buffer[log_buffer_size].category = avc->category;
+        }
+        log_buffer[log_buffer_size].log_level   = level;
+        log_buffer[log_buffer_size].log_message = av_strdup(line);
+        if (avc && avc->parent_log_context_offset) {
+            AVClass** parent = *(AVClass ***) (((uint8_t *) ptr) +
+                                   avc->parent_log_context_offset);
+            if (parent && *parent) {
+                log_buffer[log_buffer_size].parent_name = av_strdup((*parent)->item_name(parent));
+                log_buffer[log_buffer_size].parent_category =
+                    (*parent)->get_category ? (*parent)->get_category(parent) :(*parent)->category;
+            }
+        }
+        log_buffer_size ++;
+    }
+
+    pthread_mutex_unlock(&log_mutex);
+#endif
+}
+
 static void ffprobe_cleanup(int ret)
 {
     int i;
     for (i = 0; i < FF_ARRAY_ELEMS(sections); i++)
         av_dict_free(&(sections[i].entries_to_show));
+
+#if HAVE_PTHREADS
+    pthread_mutex_destroy(&log_mutex);
+#endif
 }
 
 struct unit_value {
@@ -1759,6 +1840,56 @@ static inline int show_tags(WriterContext *w, AVDictionary *tags, int section_id
     return ret;
 }
 
+static void clear_log(int need_lock)
+{
+    int i;
+
+    if (need_lock)
+        pthread_mutex_lock(&log_mutex);
+    for (i=0; i<log_buffer_size; i++) {
+        av_freep(&log_buffer[i].context_name);
+        av_freep(&log_buffer[i].log_message);
+    }
+    log_buffer_size = 0;
+    if(need_lock)
+        pthread_mutex_unlock(&log_mutex);
+}
+
+static int show_log(WriterContext *w, int section_ids, int section_id, int log_level)
+{
+    int i;
+    pthread_mutex_lock(&log_mutex);
+    if (!log_buffer_size) {
+        pthread_mutex_unlock(&log_mutex);
+        return 0;
+    }
+    writer_print_section_header(w, section_ids);
+
+    for (i=0; i<log_buffer_size; i++) {
+        if (log_buffer[i].log_level <= log_level) {
+            writer_print_section_header(w, section_id);
+            print_str("context", log_buffer[i].context_name);
+            print_int("level", log_buffer[i].log_level);
+            print_int("category", log_buffer[i].category);
+            if (log_buffer[i].parent_name) {
+                print_str("parent_context", log_buffer[i].parent_name);
+                print_int("parent_category", log_buffer[i].parent_category);
+            } else {
+                print_str_opt("parent_context", "N/A");
+                print_str_opt("parent_category", "N/A");
+            }
+            print_str("message", log_buffer[i].log_message);
+            writer_print_section_footer(w);
+        }
+    }
+    clear_log(0);
+    pthread_mutex_unlock(&log_mutex);
+
+    writer_print_section_footer(w);
+
+    return 0;
+}
+
 static void show_packet(WriterContext *w, InputFile *ifile, AVPacket *pkt, int packet_idx)
 {
     char val_str[128];
@@ -1917,6 +2048,8 @@ static void show_frame(WriterContext *w, AVFrame *frame, AVStream *stream,
     }
     if (do_show_frame_tags)
         show_tags(w, av_frame_get_metadata(frame), SECTION_ID_FRAME_TAGS);
+    if (do_show_log)
+        show_log(w, SECTION_ID_FRAME_LOGS, SECTION_ID_FRAME_LOG, do_show_log);
     if (frame->nb_side_data) {
         writer_print_section_header(w, SECTION_ID_FRAME_SIDE_DATA_LIST);
         for (i = 0; i < frame->nb_side_data; i++) {
@@ -1956,6 +2089,7 @@ static av_always_inline int process_frame(WriterContext *w,
     AVSubtitle sub;
     int ret = 0, got_frame = 0;
 
+    clear_log(1);
     if (dec_ctx && dec_ctx->codec) {
         switch (par->codec_type) {
         case AVMEDIA_TYPE_VIDEO:
@@ -2604,6 +2738,13 @@ static int open_input_file(InputFile *ifile, const char *filename)
             if (err < 0)
                 exit(1);
 
+            if (do_show_log) {
+                // For loging it is needed to disable at least frame threads as otherwise
+                // the log information would need to be reordered and matches up to contexts and frames
+                // That is in fact possible but not trivial
+                av_dict_set(&codec_opts, "threads", "1", 0);
+            }
+
             ist->dec_ctx->pkt_timebase = stream->time_base;
 #if FF_API_LAVF_AVCTX
             ist->dec_ctx->time_base = stream->codec->time_base;
@@ -3191,6 +3332,9 @@ static const OptionDef real_options[] = {
       "show a particular entry from the format/container info", "entry" },
     { "show_entries", HAS_ARG, {.func_arg = opt_show_entries},
       "show a set of specified entries", "entry_list" },
+#if HAVE_PTHREADS
+    { "show_log", OPT_INT|HAS_ARG, {(void*)&do_show_log}, "show log" },
+#endif
     { "show_packets", 0, {(void*)&opt_show_packets}, "show packets info" },
     { "show_programs", 0, {(void*)&opt_show_programs}, "show programs info" },
     { "show_streams", 0, {(void*)&opt_show_streams}, "show streams info" },
@@ -3234,6 +3378,14 @@ int main(int argc, char **argv)
     char *buf;
     char *w_name = NULL, *w_args = NULL;
     int ret, i;
+
+#if HAVE_PTHREADS
+    ret = pthread_mutex_init(&log_mutex, NULL);
+    if (ret != 0) {
+        goto end;
+    }
+#endif
+    av_log_set_callback(log_callback);
 
     av_log_set_flags(AV_LOG_SKIP_REPEATED);
     register_exit(ffprobe_cleanup);
