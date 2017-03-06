@@ -1037,7 +1037,6 @@ int configure_filtergraph(FilterGraph *fg)
         }
         if (strlen(args))
             args[strlen(args) - 1] = '\0';
-        fg->graph->resample_lavr_opts = av_strdup(args);
 
         e = av_dict_get(ost->encoder_opts, "threads", NULL, 0);
         if (e)
